@@ -1,3 +1,7 @@
+/*
+ * A program to test syscall chmod
+ * 2016年 8月 4日 星期四 23时32分53秒 CST
+ */
 #include <stdio.h>
 #include <values.h> /* LONG_MAX */
 #include <stdlib.h>  /* strtol */

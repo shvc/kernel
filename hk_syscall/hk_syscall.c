@@ -181,5 +181,5 @@ module_exit(hk_syscall_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("dawter");
-MODULE_DESCRIPTION("A module to hook syscall");
+MODULE_DESCRIPTION("A module to hook x86_64 syscall");
 
