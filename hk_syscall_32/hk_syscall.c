@@ -162,6 +162,7 @@ static void __exit hk_syscall_exit(void)
 {
 	printk(KERN_INFO "exit module hk_syscall\n");
 	restore_syscall();
+	msleep(999);
 	return;
 }
 
