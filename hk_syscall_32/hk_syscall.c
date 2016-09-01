@@ -1,13 +1,14 @@
 /*
- * hk_syscall: hook syscall on x86_64 linux
- * test and build system centos-6.9 2.6.32
+ * hk_syscall: hook syscall on x86 linux
+ * test and build system centos-5.11 2.6.18
  * Wed Jul 20 12:09:49 CST 2016
  */
-#include <linux/module.h> /* needed by all modules */
-#include <linux/kernel.h> /* needed for KERN_NFO */
-#include <linux/limits.h> /* needed for macro PATH_MAX */
-#include <linux/uaccess.h>   /* access_ok() */
-#include <asm/unistd.h>   /* micro  __NR_chmod  */
+#include <linux/module.h>  /* needed by all modules */
+#include <linux/kernel.h>  /* needed for KERN_NFO */
+#include <linux/limits.h>  /* needed for macro PATH_MAX */
+#include <linux/uaccess.h> /* access_ok() */
+#include <linux/delay.h>   /* msleep */
+#include <asm/unistd.h>    /* micro  __NR_chmod  */
 #include <linux/moduleparam.h> /* needed for module_param */
 
 static char hk_path[PATH_MAX];
@@ -18,9 +19,9 @@ MODULE_PARM_DESC(path, "A directory to test hook");
 void **syscall_table;
 struct _idt
 {
-        unsigned short offset_low,segment_sel;
-        unsigned char reserved,flags;
-        unsigned short offset_high;
+	unsigned short offset_low,segment_sel;
+	unsigned char reserved,flags;
+	unsigned short offset_high;
 };
 
 /* refer to linux/syscalls.h */
@@ -64,26 +65,26 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 
 unsigned long get_syscall_addr(void)
 {
-        int i;
+	int i;
 	unsigned int sys_call_off;
-        unsigned long sys_call_table;
-        char idtr[6];
-        unsigned short offset_low,offset_high;
-        struct _idt *idt;
-        char* p;
-        asm("sidt %0":"=m"(idtr));
-        idt = (struct _idt*)(*(unsigned long*)&idtr[2]+8*0x80);
-        offset_low = idt->offset_low;
-        offset_high = idt->offset_high;
-        sys_call_off = (offset_high<<16)|offset_low;
-        p = (char *)sys_call_off;
-        for (i=0; i<100; i++) {
-                if (p[i]=='\xff' && p[i+1]=='\x14' && p[i+2]=='\x85') {
-                        sys_call_table = *(unsigned long*)(p+i+3);
-                        return sys_call_table;
-                }
-        }
-        return 0;
+	unsigned long sys_call_table;
+	char idtr[6];
+	unsigned short offset_low,offset_high;
+	struct _idt *idt;
+	char* ptr;
+	asm("sidt %0":"=m"(idtr));
+	idt = (struct _idt*)(*(unsigned long*)&idtr[2]+8*0x80);
+	offset_low = idt->offset_low;
+	offset_high = idt->offset_high;
+	sys_call_off = (offset_high<<16)|offset_low;
+	ptr = (char *)sys_call_off;
+	for (i=0; i<100; i++) {
+		if (ptr[i]=='\xff' && ptr[i+1]=='\x14' && ptr[i+2]=='\x85') {
+			sys_call_table = *(unsigned long*)(ptr+i+3);
+			return sys_call_table;
+		}
+	}
+	return 0;
 }
 
 unsigned long cr0_cnt(void)
@@ -93,12 +94,12 @@ unsigned long cr0_cnt(void)
 	asm volatile ( "movl %%cr0, %0"
 			:"=r"(ret)
 			:
-		     );
+		);
 
 	asm volatile ( "movl %0, %%cr0"
 			:
 			:"r"(ret&0xfffeffff)
-		     );
+		);
 	return ret;
 }
 
@@ -107,14 +108,12 @@ void cr0_restore(unsigned long val)
 	asm volatile ( "movl %0, %%cr0"
 			:
 			:"r"(val)
-		     );
+		);
 }
 
 
 int hk_syscall(void)
 {
-	int retval = 0;
-
 	unsigned long orig_cr0;
 	syscall_table = (void*)get_syscall_addr();
 	if(NULL == syscall_table) {
@@ -130,19 +129,21 @@ int hk_syscall(void)
 	syscall_table[__NR_chmod] = hk_chmod;
 	cr0_restore(orig_cr0);
 
-	return retval;
+	return 0;
 }
 
 int restore_syscall(void)
 {
-	int retval = 0;
 	unsigned long orig_cr0;
 
+	if(NULL == syscall_table) {
+		return 1;
+	}
 	orig_cr0 = cr0_cnt();
 	syscall_table[__NR_chmod] = orig_chmod;
 	cr0_restore(orig_cr0);
 
-	return retval;
+	return 0;
 }
 
 static int __init hk_syscall_init(void)
