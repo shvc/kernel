@@ -3,11 +3,12 @@
  * test and build system centos-6.9 2.6.32
  * Wed Jul 20 12:09:49 CST 2016
  */
-#include <linux/module.h> /* needed by all modules */
-#include <linux/kernel.h> /* needed for KERN_NFO */
-#include <linux/limits.h> /* needed for macro PATH_MAX */
-#include <linux/uaccess.h>   /* access_ok() */
-#include <asm/unistd.h>   /* micro  __NR_chmod  */
+#include <linux/module.h>  /* needed by all modules */
+#include <linux/kernel.h>  /* needed for KERN_NFO */
+#include <linux/limits.h>  /* needed for macro PATH_MAX */
+#include <linux/uaccess.h> /* access_ok() */
+#include <linux/delay.h>   /* msleep */
+#include <asm/unistd.h>    /* micro  __NR_chmod  */
 #include <linux/moduleparam.h> /* needed for module_param */
 
 static char hk_path[PATH_MAX];
@@ -104,12 +105,12 @@ unsigned long cr0_cnt(void)
 	asm volatile ( "movq %%cr0, %0"
 			:"=r"(ret)
 			:
-		     );
+		);
 
 	asm volatile ( "movq %0, %%cr0"
 			:
 			:"r"(ret&0xfffffffffffeffff)
-		     );
+		);
 	return ret;
 }
 
@@ -118,7 +119,7 @@ void cr0_restore(unsigned long val)
 	asm volatile ( "movq %0, %%cr0"
 			:
 			:"r"(val)
-		     );
+		);
 }
 
 
