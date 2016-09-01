@@ -10,8 +10,6 @@
 
 #include "memdev.h"
 
-#define SUCCESS 0
-
 static int g_device_open = 0;
 
 static ssize_t memdev_write ( struct file *file_ptr
@@ -67,7 +65,7 @@ static int memdev_open(struct inode *inode, struct file *file)
 	g_device_open++;
 	try_module_get(THIS_MODULE);
 
-	return SUCCESS;
+	return 0;
 }
 
 static int memdev_release(struct inode *inode, struct file *file)
@@ -75,7 +73,7 @@ static int memdev_release(struct inode *inode, struct file *file)
 	g_device_open--;
 
 	module_put(THIS_MODULE);
-	return SUCCESS;
+	return 0;
 }
 
 static struct file_operations hk_vfs_fops = 

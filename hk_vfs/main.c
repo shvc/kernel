@@ -1,3 +1,6 @@
+/*
+ * A module to hook vfs
+ */
 #include <linux/module.h>
 #include "memdev.h"
 
