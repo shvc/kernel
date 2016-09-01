@@ -107,7 +107,7 @@ int register_device(void)
 
 	return 0;
 }
-/*-----------------------------------------------------------------------------------------------*/
+
 void unregister_device(void)
 {
 	printk( KERN_NOTICE "hk_vfs: unregister_device() is called" );
