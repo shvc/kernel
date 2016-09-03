@@ -61,7 +61,7 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 	return retval;
 }
 
-#ifdef __x86_64
+#ifdef __x86_64__
 static void *memmem(const void *haystack, size_t haystack_len, const void *needle, size_t needle_len) 
 {
 	const char *begin; 
