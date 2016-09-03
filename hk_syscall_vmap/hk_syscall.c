@@ -1,25 +1,20 @@
 /*
- * hk_syscall: hook syscall on x86 linux
- * test and build system centos-5.11 2.6.18
- * Wed Jul 30 12:09:49 CST 2016
+ * hk_syscall: hook syscall linux
+ * test and build system:
+ * -    centos-5 2.6.18-411.el5
+ * -    centos-7 3.10.0-327.28.3.el7.x86_64
+ * Sat Sep  3 21:49:13 CST 2016
  */
-#include <linux/module.h>  /* needed by all modules */
-#include <linux/kernel.h>  /* needed for KERN_NFO */
-#include <linux/limits.h>  /* needed for macro PATH_MAX */
-#include <linux/uaccess.h> /* access_ok() */
-#include <linux/delay.h>   /* msleep */
-#include <linux/vmalloc.h> /* vmap */
+#include <linux/module.h>
+#include <linux/kernel.h>  /* for KERN_NFO stuff */
+#include <linux/limits.h>  /* for macro PATH_MAX stuff */
+#include <linux/uaccess.h> /* for access_ok stuff */
+#include <linux/delay.h>   /* for msleep stuff */
+#include <linux/vmalloc.h> /* for vmap stuff */
+#include <linux/slab.h>
 #include <linux/mm.h>
 #include <asm/unistd.h>    /* micro  __NR_chmod  */
-#include <linux/moduleparam.h> /* needed for module_param */
-
-#ifdef CONFIG_XEN
-#define __XEN__
-#define __XEN_TOOLS__
-#include <xen/hvm.h>
-#include <xen/interface/xen.h>
-#include <xen/interface/domctl.h>
-#endif
+#include <linux/moduleparam.h> /* for module_param stuff */
 
 static char hk_path[PATH_MAX];
 static char *path = "/tmp/hk_dir/";
@@ -27,12 +22,6 @@ module_param(path, charp, 000);
 MODULE_PARM_DESC(path, "A directory to test hook");
 
 void **syscall_table;
-struct _idt
-{
-	unsigned short offset_low,segment_sel;
-	unsigned char reserved,flags;
-	unsigned short offset_high;
-};
 
 /* refer to linux/syscalls.h */
 asmlinkage long   (*orig_chmod)(const char __user *, mode_t);
@@ -43,7 +32,6 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 	long retval = 0;
 	char *buffer;
 
-	printk("chmod: %s\n", filename);
 	retval = access_ok(VERIFY_READ, filename, 3);
 	if(0 == retval) {
 		printk(KERN_NOTICE "chmod: access_ok(filename) failed\n");
@@ -73,15 +61,65 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 	return retval;
 }
 
+#ifdef __x86_64
+static void *memmem(const void *haystack, size_t haystack_len, const void *needle, size_t needle_len) 
+{
+	const char *begin; 
+	const char *const last_possible = (const char *) haystack + haystack_len - needle_len;
+
+	if (needle_len == 0){ 
+		/* The first occurrence of the empty string is deemed to occur at 
+		 * the beginning of the string.
+		 */ 
+		return (void *) haystack;
+	}
+	/* Sanity check, otherwise the loop might search through the whole memory. */ 
+	if (__builtin_expect(haystack_len < needle_len, 0)){ 
+		return NULL;
+	}
+
+	for (begin = (const char *) haystack; begin <= last_possible; ++begin) { 
+		if (begin[0] == ((const char *) needle)[0] 
+				&& !memcmp((const void *) &begin[1], 
+					(const void *) ((const char *) needle + 1), 
+					needle_len - 1)){
+			return (void *) begin; 
+		}
+	}
+	return NULL; 
+}
+
+unsigned long get_syscall_addr(void)
+{
+	unsigned long syscall_long, retval = 0;
+	char sc_asm[200];
+	rdmsrl(MSR_LSTAR, syscall_long);
+	memcpy(sc_asm, (char*)syscall_long, 200);
+	retval = (unsigned long) memmem(sc_asm, 200, "\xff\x14\xc5", 3);
+	if( 0 != retval) {
+		retval = (unsigned long)(*(unsigned long*)(retval+3));
+		retval |= 0xFFFFFFff00000000;
+	} else {
+		printk("long mode: memmem found nothing, return NULL\n");
+	}
+
+	return retval;
+}
+#else
 unsigned long get_syscall_addr(void)
 {
 	int i;
+	char* ptr;
+	char idtr[6];
 	unsigned int sys_call_off;
 	unsigned long sys_call_table;
-	char idtr[6];
 	unsigned short offset_low,offset_high;
-	struct _idt *idt;
-	char* ptr;
+	struct _idt {
+		unsigned short offset_low,segment_sel;
+		unsigned char reserved,flags;
+		unsigned short offset_high;
+	}*idt;
+
 	asm("sidt %0":"=m"(idtr));
 	idt = (struct _idt*)(*(unsigned long*)&idtr[2]+8*0x80);
 	offset_low = idt->offset_low;
@@ -96,6 +134,7 @@ unsigned long get_syscall_addr(void)
 	}
 	return 0;
 }
+#endif
 
 int hk_syscall(void)
 {
@@ -125,6 +164,7 @@ int hk_syscall(void)
 	printk("vmap orig_chmod: %p\n", orig_chmod);
 	map_syscall_table[__NR_chmod] = hk_chmod;
 	vunmap(vmap_addr);
+
 	return 0;
 }
 
@@ -152,6 +192,19 @@ int restore_syscall(void)
 	return 0;
 }
 
+int hide_this_module(void)
+{
+#if 0
+	/* remove this module from procfs */
+	list_del_init(&__this_module.list);
+
+	/* remove this module from sysfs */
+	kobject_del(&THIS_MODULE->mkobj.kobj);
+#endif
+
+	return 0;
+}
+
 static int __init hk_syscall_init(void)
 {
 	int ret = 0;
@@ -162,6 +215,8 @@ static int __init hk_syscall_init(void)
 	strcpy(hk_path, path);
 	printk(KERN_INFO "hook path: %s\n", hk_path);
 	ret = hk_syscall();
+
+	hide_this_module();
 	return ret;
 }
 
