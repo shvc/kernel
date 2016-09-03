@@ -12,7 +12,7 @@ kernel module to hook x86 syscall
 - use cr0 register to write WP(write protected) syscall_table
 
 ## hk_syscall_vmap
-kernel module to hook x86 syscall
+kernel module to hook x86 and x64 syscall
 - use vmap to write WP(write protected) syscall_table
 - vmap
 ```
