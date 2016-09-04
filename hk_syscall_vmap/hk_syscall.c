@@ -67,7 +67,8 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 void * get_syscall_addr(void)
 {
 	unsigned long **addr_cur = (unsigned long**)PAGE_OFFSET;
-	unsigned long **addr_max = (unsigned long**)ULONG_MAX;
+	/* You can use replace VMALLOC_START with ULONG_MAX below */
+	unsigned long **addr_max = (unsigned long**)VMALLOC_START;
 	while(addr_cur != addr_max) {
 		if(addr_cur[__NR_close] == (unsigned long*)sys_close) break;
 		addr_cur++;
