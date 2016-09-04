@@ -11,8 +11,11 @@
 #include <linux/uaccess.h> /* for access_ok stuff */
 #include <linux/delay.h>   /* for msleep stuff */
 #include <linux/vmalloc.h> /* for vmap stuff */
+#include <linux/syscalls.h>
+#include <linux/highmem.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <asm-generic/sections.h> /* for _etext, _edata stuff */
 #include <asm/unistd.h>    /* micro  __NR_chmod  */
 #include <linux/moduleparam.h> /* for module_param stuff */
 
@@ -61,80 +64,16 @@ asmlinkage long hk_chmod(const char __user *filename, mode_t mode)
 	return retval;
 }
 
-#ifdef __x86_64__
-static void *memmem(const void *haystack, size_t haystack_len, const void *needle, size_t needle_len) 
+void * get_syscall_addr(void)
 {
-	const char *begin; 
-	const char *const last_possible = (const char *) haystack + haystack_len - needle_len;
-
-	if (needle_len == 0){ 
-		/* The first occurrence of the empty string is deemed to occur at 
-		 * the beginning of the string.
-		 */ 
-		return (void *) haystack;
+	unsigned long **addr_cur = (unsigned long**)PAGE_OFFSET;
+	unsigned long **addr_max = (unsigned long**)ULONG_MAX;
+	while(addr_cur != addr_max) {
+		if(addr_cur[__NR_close] == (unsigned long*)sys_close) break;
+		addr_cur++;
 	}
-	/* Sanity check, otherwise the loop might search through the whole memory. */ 
-	if (__builtin_expect(haystack_len < needle_len, 0)){ 
-		return NULL;
-	}
-
-	for (begin = (const char *) haystack; begin <= last_possible; ++begin) { 
-		if (begin[0] == ((const char *) needle)[0] 
-				&& !memcmp((const void *) &begin[1], 
-					(const void *) ((const char *) needle + 1), 
-					needle_len - 1)){
-			return (void *) begin; 
-		}
-	}
-	return NULL; 
+	return addr_cur==addr_max?0:addr_cur;
 }
-
-unsigned long get_syscall_addr(void)
-{
-	unsigned long syscall_long, retval = 0;
-	char sc_asm[200];
-	rdmsrl(MSR_LSTAR, syscall_long);
-	memcpy(sc_asm, (char*)syscall_long, 200);
-	retval = (unsigned long) memmem(sc_asm, 200, "\xff\x14\xc5", 3);
-	if( 0 != retval) {
-		retval = (unsigned long)(*(unsigned long*)(retval+3));
-		retval |= 0xFFFFFFff00000000;
-	} else {
-		printk("long mode: memmem found nothing, return NULL\n");
-	}
-
-	return retval;
-}
-#else
-unsigned long get_syscall_addr(void)
-{
-	int i;
-	char* ptr;
-	char idtr[6];
-	unsigned int sys_call_off;
-	unsigned long sys_call_table;
-	unsigned short offset_low,offset_high;
-	struct _idt {
-		unsigned short offset_low,segment_sel;
-		unsigned char reserved,flags;
-		unsigned short offset_high;
-	}*idt;
-
-	asm("sidt %0":"=m"(idtr));
-	idt = (struct _idt*)(*(unsigned long*)&idtr[2]+8*0x80);
-	offset_low = idt->offset_low;
-	offset_high = idt->offset_high;
-	sys_call_off = (offset_high<<16)|offset_low;
-	ptr = (char *)sys_call_off;
-	for (i=0; i<100; i++) {
-		if (ptr[i]=='\xff' && ptr[i+1]=='\x14' && ptr[i+2]=='\x85') {
-			sys_call_table = *(unsigned long*)(ptr+i+3);
-			return sys_call_table;
-		}
-	}
-	return 0;
-}
-#endif
 
 int hk_syscall(void)
 {
