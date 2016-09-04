@@ -46,6 +46,7 @@ Description
 Free the virtually contiguous memory area starting at addr, which was created from the page array passed to vmap.  
 Must not be called in interrupt context.
 ```
+- You can replace vmap() with change_page_attr()
 
 ## hk_vfs
 kernel module to hook vfs functions
