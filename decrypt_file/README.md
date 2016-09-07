@@ -1,6 +1,7 @@
 # decrypt specified file
 - hook vfs function:
-file->f_inode->i_fop->read
+
+	file->f_inode->i_fop->read
 
 # platform
 - Centos 7
@@ -9,18 +10,24 @@ file->f_inode->i_fop->read
 # usage
 - make
 - insmod
-insmod with default filename: /tmp/test.txt
-```insmod decrypt_file.ko```
-insmod with specified filename:
-```insmod decrypt_file.ko filename="/root/abc.c"```
-- test
-```
-cat /tmp/test.txt
-....
+	insmod with default filename: /tmp/test.txt
 
-head /tmp/test.txt
-...
-```
+	`insmod decrypt_file.ko`
+
+	insmod with specified filename: /root/abc.c
+
+	`insmod decrypt_file.ko filename="/root/abc.c"`
+
+- test the default file
+
+	```
+	cat /tmp/test.txt
+	abABCc
+	
+	head /tmp/test.txt
+	ABabcC
+	
+	```
 
 #others
 - 目前仅实现了文件内容大小写转换功能
