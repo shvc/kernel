@@ -52,4 +52,10 @@ Must not be called in interrupt context.
 kernel module to hook vfs functions
 -  ...
 
+## Docs
+https://n0where.net/educational-ubuntu-linux-rootkit  
+https://n0where.net/kernel-mode-rootkit-hunter-tyton  
+
+
+
 
